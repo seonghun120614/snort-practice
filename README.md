@@ -154,7 +154,35 @@ nmap -sS -p 1234 localhost
 nmap -sT -p 1234 localhost
 ```
 
-![](./img/스크린샷%202026-05-19%20오후%2011.01.35.png)
+![External packet entrants](./img/스크린샷%202026-05-19%20오후%2011.01.35.png)
+
+## Creating DoS Rules
+
+### Rule `dos.rules`
+
+```bash
+alert tcp any any -> any any (msg: "DOS ATTACK IS DETECTED"; flags:S; threshold:  type threshold, track by_dst, count 20, seconds 60; sid: 5000;)
+```
+
+### Running Snort
+
+```bash
+snort -c snort.conf -A console -i eth0 -k none
+```
+
+### Send TCP Packet all at once
+
+```bash
+# For Window
+nping --tcp --flags SYN -p 80 --rate 5 --count 20 localhost
+
+# For Mac
+seq 60 | xargs -I {} -P 60 nc -zv -G 1 localhost 1234
+```
+
+### Results
+
+![Dos](<img/스크린샷 2026-05-19 오후 11.54.28.png>)
 
 ## Helpful Instruction
 
