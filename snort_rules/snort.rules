@@ -1,0 +1,1 @@
+alert tcp any any -> any any (content:"www.seoultech.ac.kr"; msg:"SEOULTECH is opend"; sid:123123;)
