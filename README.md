@@ -112,6 +112,49 @@ curl -v http://www.seoultech.ac.kr
 
 ![seoultech detection](./img/스크린샷%202026-05-19%20오후%203.59.58.png)
 
+## Creating Other Local Rules
+
+### Creating `local.rules`
+
+```bash
+alert tcp any any -> any 1234 (msg:"Scanning_tmp1"; flow:stateless; classtype:attempted-recon; sid:13;)
+```
+
+### Modifying `snort.conf`
+
+```bash
+# include $RULE_PATH/snort.rules
+include $RULE_PATH/local.rules
+```
+
+### Running Snort
+
+```bash
+# For WSL
+snort -c /etc/snort/snort.conf -A console -i eth0
+
+# For Docker Container
+snort -c /etc/snort/snort.conf -A console -i eth0 -k none
+```
+
+### Open Port
+
+```bash
+# For Docker, this line is not necessary
+nc -l -p 1234
+```
+
+### Scanning Port using NMAP
+
+```bash
+# WSL
+nmap -sS -p 1234 localhost
+
+# Docker Container
+nmap -sT -p 1234 localhost
+```
+
+![](./img/스크린샷%202026-05-19%20오후%2011.01.35.png)
 
 ## Helpful Instruction
 

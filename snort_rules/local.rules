@@ -1,0 +1,1 @@
+alert tcp any any -> any 1234 (msg:"Scanning_tmp1"; flow:stateless; classtype:attempted-recon; sid:13;)

@@ -1,0 +1,21 @@
+services:
+  snort_service:
+    build: .
+    container_name: snort_container
+    image: snort_image
+    tty: true
+    stdin_open: true
+    networks:
+      - snort_net
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./snort_rules:/etc/snort/rules
+      - ./snort_logs:/var/log/snort
+      - ./snort.conf:/etc/snort/snort.conf
+    ports:
+      - "1234:1234"
+
+networks:
+  snort_net:
+    driver: bridge
