@@ -11,12 +11,16 @@ chmod u+x ./start.sh
 ./start.sh
 ```
 
+> `chmod u+x` grants execute permission on `start.sh` for the file owner. `./start.sh` then runs the script, which starts the Docker container for this lab environment.
+
 ### Running Snort
 
 ```bash
 # Capturing 1 packet that is Raw Packet(Binary) and Exited
 snort -b -n 1
 ```
+
+> `-b` tells Snort to write captured packets in raw binary (tcpdump-compatible) format to a log file. `-n 1` limits the session to exactly one packet before Snort exits automatically.
 
 ### Send curl request
 
@@ -26,9 +30,11 @@ snort -b -n 1
 curl localhost:1234
 ```
 
+> Since the ICMP ping rule is disabled, `curl` is used to generate TCP traffic instead. A `curl` request initiates the TCP three-way handshake (SYN → SYN-ACK → ACK), which Snort can capture and log.
+
 ### Capturing Result
 
-![Capturing Result](./img/스크린샷%202026-05-19%20오후%203.09.12.png)
+![Capturing Result](./img/installation_checking.png)
 
 ### Checking Log File
 
@@ -36,18 +42,20 @@ curl localhost:1234
 tcpdump -r /var/log/snort/snort.log.(number)
 ```
 
-![log dump](./img/스크린샷%202026-05-19%20오후%203.13.08.png)
+> `-r` tells `tcpdump` to read from a saved binary log file rather than a live network interface. Replace `(number)` with the actual Unix timestamp suffix appended to your log file (e.g., `snort.log.1779170771`).
 
-- `reading from file /var/log/snort/...`: Snort가 실시간 네트워크 카드가 아니라, 과거 저장된 로그 파일(`snort.log.1779170771`)을 읽어서 분석하고 있다는 뜻이며, 뒤의 숫자는 파일이 생성된 유닉스 타임스탬프
-- `link-type EN10MB (Ethernet)`: 이 패킷이 수집된 네트워크의 2계층(데이터 링크 계층) 형태가 이더넷(Standard Ethernet) 규격임을 의미, EN10MB는 역사적으로 10Mbps 이더넷 시절부터 쓰인 용어지만, 현재는 100Mbps, 1Gbps 환경에서도 이더넷 패킷이면 동일하게 표시됨
-- `snapshot length 1514`: 패킷을 캡처할 때 최대 1514바이트 크기까지만 잘라서 저장하도록 설정되었다는 뜻이며, 일반적인 이더넷의 최대 패킷 크기(MTU)가 1500바이트(+이더넷 헤더 14바이트)이므로, 패킷 전체를 유실 없이 온전히 다 캡처했다는 것을 의미
-- `06:06:37.390429`: Timestamp
-- `ARP`: 패킷의 3계층 프로토콜은 주소 결정을 위한 ARP, IP 주소는 알지만 그 IP를 쓰고 있는 장비의 물리적 주소(MAC 주소)를 모를 때 사용
-- `Request`: 상대방에게 질문을 던지는 '요청' 패킷
-- `who-has`: "누가 가지고 있니?" 의 요청
-- `2af7b0a26c0e`: 원래 이 자리에는 질문 대상의 IP 주소가 와야 하는데, 특이하게 `2af7b0a26c0e` 라는 문자열이 적혀있음, 이는 도커 컨테이너의 16진수 문자열로 ID 를 부여하게 되는데, 해당 ID 가 들어가게 됨
-- `tell 172.17.0.1`: 도커 엔진 내부의 가상 게이트웨이(Docker Bridge Interface) 주소에 해당하며, 이 질문을 던진 주체의 IP 주소임
-- `length 28`: ARP 요청 데이터 자체의 순수한 크기가 28바이트라는 의미
+![log dump](./img/checking_log_file_with_tcpdump.png)
+
+* `reading from file /var/log/snort/...`: This means Snort is analyzing a previously saved log file (`snort.log.1779170771`) rather than a real-time network card, and the numbers at the end represent the Unix timestamp when the file was created.
+* `link-type EN10MB (Ethernet)`: This indicates that the Layer 2 (Data Link Layer) type of the network where this packet was captured is the Ethernet (Standard Ethernet) specification. Although EN10MB historically refers to the 10Mbps Ethernet era, it is still displayed for any Ethernet packet in modern 100Mbps or 1Gbps environments.
+* `snapshot length 1514`: This means the packet capture configuration was set to truncate and save packets up to a maximum size of 1514 bytes. Since the standard Ethernet Maximum Transmission Unit (MTU) is 1500 bytes (+ 14 bytes for the Ethernet header), it indicates that the entire packet was captured fully without any data loss.
+* `06:06:37.390429`: Timestamp
+* `ARP`: The Layer 3 protocol of the packet is ARP for address resolution, which is used when the IP address is known but the physical address (MAC address) of the device using that IP is unknown.
+* `Request`: A "Request" packet that sends a query to the destination.
+* `who-has`: A request asking "Who has this?".
+* `2af7b0a26c0e`: Originally, the target IP address of the query should be in this position. However, the specific string `2af7b0a26c0e` is written instead. This represents the hexadecimal string assigned as a Docker container ID.
+* `tell 172.17.0.1`: This corresponds to the virtual gateway address inside the Docker engine (Docker Bridge Interface) and is the IP address of the entity that sent this query.
+* `length 28`: This means the pure size of the ARP request data itself is 28 bytes.
 
 ## Creating Custom Rules
 
@@ -58,12 +66,16 @@ tcpdump -r /var/log/snort/snort.log.(number)
 alert tcp any any -> any any (content:"www.seoultech.ac.kr"; msg:"SEOULTECH is opend"; sid:123123;)
 ```
 
+> This is a Snort rule written into `./snort_rules/snort.rules`. It alerts on any TCP packet whose payload contains the string `www.seoultech.ac.kr`. `msg` sets the alert label shown in the console, and `sid` is a unique rule ID required by Snort.
+
 ### Modifying `snort.conf`
 
-```
+```bash
 # In Section #7, add next line
 include $RULE_PATH/snort.rules
 ```
+
+> Adding this line in Section 7 of `snort.conf` tells Snort to load the custom rules file at startup. `$RULE_PATH` is a variable already defined earlier in `snort.conf` that points to the rules directory.
 
 ### Running Snort with `snort.conf`
 
@@ -72,6 +84,8 @@ include $RULE_PATH/snort.rules
 # So, it is not saved
 snort -c /etc/snort/snort.conf -A console -i eth0
 ```
+
+> `-c` loads the specified configuration file. `-A console` prints alerts directly to the terminal in real time instead of writing them to a file. `-i eth0` specifies the network interface to listen on.
 
 #### Docker Checksum Problem
 
@@ -83,26 +97,24 @@ However, **IDS engines** like Snort, upon receiving such packets with incorrect 
 
 Therefore, checksum checking should be disabled in a Docker environment.
 
-도커에는 성능 최적화를 위해 리눅스 커널이 패킷의 오류 검증용 Checksum을 계산하지 않고 비워둔 채, **올바르지 않은 값으로 패킷을 내보내게 되고**, 실제로 이를 최종 물리 랜카드에게 나몰라라 맡기게 된다.  
-하지만 Snort 같은 **IDS 엔진**은 이런 체크섬이 올바르지 않은 패킷을 받으면, 유실되거나 변조된 위조 패킷으로 판단하여 규칙 검사(페이로드 매칭) 단계에 진입시키지도 않고 조용히 드롭(무시)해 버린다.  
-***즉, 패킷이 eth0을 통과는 하지만, Snort가 내부 장막에서 필터링해 버린 것이다(체크섬)***  
-  
-따라서 도커 환경이라면 체크섬 검사를 꺼준다.
-
 ```bash
-# 도커 가상 네트워크 환경 특유의 TCP Checksum Offloading(체크섬 부하분산) 문제
+# TCP Checksum Offloading issue unique to Docker virtual network environments
 snort -c /etc/snort/snort.conf -A console -i eth0 -k none
 ```
 
-혹은 리눅스 커널 수준에서 이를 해결할 수도 있다.
+> `-k none` disables all checksum validation in Snort. This is necessary inside Docker because the kernel offloads checksum calculation to the physical NIC, leaving packets with invalid checksums that Snort would otherwise silently drop before any rule matching occurs.
+
+or also, you can resolve this problem in Linux kernel level
 
 ```bash
-# ethtool 설치
+# ethtool install
 apt-get install -y ethtool
 
-# eth0 인터페이스의 TX(송신) 체크섬 연산 오프로드 끄기
+# Turn off the TX Check Sum Offload of eth0 interface
 ethtool -K eth0 tx off
 ```
+
+> `apt-get install -y ethtool` installs the `ethtool` utility. `ethtool -K eth0 tx off` disables TX (transmit) checksum offloading on the `eth0` interface at the kernel level, so packets are sent with correctly computed checksums that Snort can validate normally.
 
 ### Execute Instruction by Another Terminal
 
@@ -110,15 +122,21 @@ ethtool -K eth0 tx off
 curl -v http://www.seoultech.ac.kr
 ```
 
-![seoultech detection](./img/스크린샷%202026-05-19%20오후%203.59.58.png)
+> `-v` enables verbose output, showing the full HTTP request and response headers. This request generates TCP traffic containing `www.seoultech.ac.kr` in the payload, which triggers the custom Snort rule defined earlier.
+
+![seoultech detection](./img/tcp_seoultech_alert.png)
 
 ## Creating Other Local Rules
 
 ### Creating `local.rules`
 
 ```bash
-alert tcp any any -> any 1234 (msg:"Scanning_tmp1"; flow:stateless; classtype:attempted-recon; sid:13;)
+# You need to replace server_ip your own server ip
+# Plz check the `ifconfig` or `ipconfig`
+alert tcp any any -> $(VICTIM_IP) 1234 (msg:"Scanning_tmp1"; flow:stateless; classtype:attempted-recon; sid:13;)
 ```
+
+> This rule alerts on any TCP packet destined for port `1234` on the victim host. Replace `$(VICTIM_IP)` with the actual IP address of the target machine (find it with `ifconfig` or `ipconfig`). `flow:stateless` matches regardless of connection state, making it suitable for detecting SYN scans. `classtype:attempted-recon` categorizes the alert as a reconnaissance attempt.
 
 ### Modifying `snort.conf`
 
@@ -127,15 +145,19 @@ alert tcp any any -> any 1234 (msg:"Scanning_tmp1"; flow:stateless; classtype:at
 include $RULE_PATH/local.rules
 ```
 
+> The previous `snort.rules` line is commented out and replaced with `local.rules`. This switches the active rule set so Snort loads only the local scanning-detection rule for this exercise.
+
 ### Running Snort
 
 ```bash
 # For WSL
 snort -c /etc/snort/snort.conf -A console -i eth0
 
-# For Docker Container
+# For Docker Container on Host
 snort -c /etc/snort/snort.conf -A console -i eth0 -k none
 ```
+
+> Use the WSL command if running Snort directly inside WSL (checksums are valid). Use the Docker command (with `-k none`) if running inside a Docker container, where checksum offloading causes Snort to silently drop packets otherwise.
 
 ### Open Port
 
@@ -143,6 +165,8 @@ snort -c /etc/snort/snort.conf -A console -i eth0 -k none
 # For Docker, this line is not necessary
 nc -l -p 1234
 ```
+
+> `nc -l -p 1234` starts a simple TCP listener on port `1234` using Netcat, giving the scanner a reachable port to probe. In a Docker environment this step is unnecessary because the port is already exposed by the container configuration.
 
 ### Scanning Port using NMAP
 
@@ -154,7 +178,9 @@ nmap -sS -p 1234 localhost
 nmap -sT -p 1234 localhost
 ```
 
-![External packet entrants](./img/스크린샷%202026-05-19%20오후%2011.01.35.png)
+> `-sS` performs a SYN (half-open) scan, which requires raw socket privileges and is used in WSL where that is available. `-sT` performs a full TCP connect scan, used inside Docker where raw sockets are typically unavailable. Both scan port `1234` on localhost to trigger the Snort alert.
+
+![External packet entrants](./img/scanning_alert.png)
 
 ## Creating DoS Rules
 
@@ -164,11 +190,15 @@ nmap -sT -p 1234 localhost
 alert tcp any any -> any any (msg: "DOS ATTACK IS DETECTED"; flags:S; threshold:  type threshold, track by_dst, count 20, seconds 60; sid: 5000;)
 ```
 
+> `flags:S` matches only TCP SYN packets (connection-initiation packets). The `threshold` keyword suppresses repeated alerts and instead fires once when the count reaches `20` SYN packets within `60` seconds to the same destination (`track by_dst`), which is a classic sign of a SYN-flood DoS attack.
+
 ### Running Snort
 
 ```bash
 snort -c snort.conf -A console -i eth0 -k none
 ```
+
+> Runs Snort using the local `snort.conf` in the current directory, printing alerts to the console. `-k none` disables checksum validation for the Docker environment.
 
 ### Send TCP Packet all at once
 
@@ -180,10 +210,13 @@ nping --tcp --flags SYN -p 80 --rate 5 --count 20 localhost
 seq 60 | xargs -I {} -P 60 nc -zv -G 1 localhost 1234
 ```
 
+> **Windows:** `nping` sends `20` raw TCP SYN packets to port `80` at a rate of `5` packets per second, simulating a SYN flood. **Mac:** `seq 60` generates 60 numbers; `xargs -P 60` runs up to 60 parallel `nc` processes simultaneously, each attempting a TCP connection to port `1234` with a 1-second timeout (`-G 1`), flooding the target with concurrent SYN packets.
+
 ### Results
 
-![Dos](<img/스크린샷 2026-05-19 오후 11.54.28.png>)
+![Dos](./img/dos_alert.png)
 
 ## Helpful Instruction
 
 - `pkill -9 snort` or `kill -9 %1`: Force stopping snort
+- If you want to revise this project, you can access the `snort_rules`, also `snort.conf` too
