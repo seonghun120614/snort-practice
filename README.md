@@ -37,7 +37,7 @@
 ### Loading Container
 
 ```bash
-chmod u+x ./start.sh
+# chmod u+x ./start.sh
 ./start.sh
 ```
 
@@ -50,21 +50,25 @@ chmod u+x ./start.sh
 snort -b -n 1
 ```
 
-> `-b` tells Snort to write captured packets in raw binary (tcpdump-compatible) format to a log file. `-n 1` limits the session to exactly one packet before Snort exits automatically.
+> `-b` tells Snort to write captured packets in raw binary (tcpdump-compatible) format to a log file.  
+`-n 1` limits the session to exactly one packet before Snort exits automatically.
 
 ### Send curl request
 
 ```bash
-# BECAUSE I DISABLED THE ICMP PING RULE,
-# I SEND THE CURL REQUEST([SIN] PACKET -> [SYN-ACK] ... )
+# Just for checking the installation Snort
 curl localhost:1234
 ```
-
-> Since the ICMP ping rule is disabled, `curl` is used to generate TCP traffic instead. A `curl` request initiates the TCP three-way handshake (SYN → SYN-ACK → ACK), which Snort can capture and log.
 
 ### Capturing Result
 
 ![Capturing Result](./img/installation_checking.png)
+
+1. The host sends a request to `localhost:1234`. (Assuming port forwarding is configured)
+2. The host's network stack forwards this packet to Docker's virtual network bridge interface (e.g., `docker0`).
+3. The Docker engine first broadcasts an ARP (Address Resolution Protocol) request over the bridge network to find the destination container's IP.
+4. Snort inside the container collects this ARP packet (1 packet).
+5. However, the TCP packets that should have followed are not caught by Snort at all, and the process terminates with Total: 1 (ARP).
 
 ### Checking Log File
 
@@ -72,7 +76,8 @@ curl localhost:1234
 tcpdump -r /var/log/snort/snort.log.(number)
 ```
 
-> `-r` tells `tcpdump` to read from a saved binary log file rather than a live network interface. Replace `(number)` with the actual Unix timestamp suffix appended to your log file (e.g., `snort.log.1779170771`).
+> `-r` tells `tcpdump` to read from a saved binary log file rather than a live network interface.  
+Replace `(number)` with the actual Unix timestamp suffix appended to your log file (e.g., `snort.log.1779170771`).
 
 ![log dump](./img/checking_log_file_with_tcpdump.png)
 
@@ -96,7 +101,9 @@ tcpdump -r /var/log/snort/snort.log.(number)
 alert tcp any any -> any any (content:"www.seoultech.ac.kr"; msg:"SEOULTECH is opend"; sid:123123;)
 ```
 
-> This is a Snort rule written into `./snort_rules/snort.rules`. It alerts on any TCP packet whose payload contains the string `www.seoultech.ac.kr`. `msg` sets the alert label shown in the console, and `sid` is a unique rule ID required by Snort.
+> This is a Snort rule written into `./snort_rules/snort.rules`.  
+It alerts on any TCP packet whose payload contains the string `www.seoultech.ac.kr`.  
+`msg` sets the alert label shown in the console, and `sid` is a unique rule ID required by Snort.
 
 ### Modifying `snort.conf`
 
@@ -105,7 +112,8 @@ alert tcp any any -> any any (content:"www.seoultech.ac.kr"; msg:"SEOULTECH is o
 include $RULE_PATH/snort.rules
 ```
 
-> Adding this line in Section 7 of `snort.conf` tells Snort to load the custom rules file at startup. `$RULE_PATH` is a variable already defined earlier in `snort.conf` that points to the rules directory.
+> Adding this line in Section 7 of `snort.conf` tells Snort to load the custom rules file at startup.  
+`$RULE_PATH` is a variable already defined earlier in `snort.conf` that points to the rules directory.
 
 ### Running Snort with `snort.conf`
 
@@ -115,7 +123,9 @@ include $RULE_PATH/snort.rules
 snort -c /etc/snort/snort.conf -A console -i eth0
 ```
 
-> `-c` loads the specified configuration file. `-A console` prints alerts directly to the terminal in real time instead of writing them to a file. `-i eth0` specifies the network interface to listen on.
+> `-c` loads the specified configuration file.  
+`-A console` prints alerts directly to the terminal in real time instead of writing them to a file.  
+`-i eth0` specifies the network interface to listen on.
 
 #### Docker Checksum Problem
 
@@ -132,7 +142,8 @@ Therefore, checksum checking should be disabled in a Docker environment.
 snort -c /etc/snort/snort.conf -A console -i eth0 -k none
 ```
 
-> `-k none` disables all checksum validation in Snort. This is necessary inside Docker because the kernel offloads checksum calculation to the physical NIC, leaving packets with invalid checksums that Snort would otherwise silently drop before any rule matching occurs.
+> `-k none` disables all checksum validation in Snort. This is necessary inside Docker because the kernel offloads checksum calculation to the physical NIC,  
+leaving packets with invalid checksums that Snort would otherwise silently drop before any rule matching occurs.
 
 or also, you can resolve this problem in Linux kernel level
 
@@ -163,10 +174,10 @@ curl -v http://www.seoultech.ac.kr
 ```bash
 # You need to replace server_ip your own server ip
 # Plz check the `ifconfig` or `ipconfig`
-alert tcp any any -> $(VICTIM_IP) 1234 (msg:"Scanning_tmp1"; flow:stateless; classtype:attempted-recon; sid:13;)
+alert tcp any any -> $(SERVER_IP) 1234 (msg:"Scanning_tmp1"; flow:stateless; classtype:attempted-recon; sid:13;)
 ```
 
-> This rule alerts on any TCP packet destined for port `1234` on the victim host. Replace `$(VICTIM_IP)` with the actual IP address of the target machine (find it with `ifconfig` or `ipconfig`). `flow:stateless` matches regardless of connection state, making it suitable for detecting SYN scans. `classtype:attempted-recon` categorizes the alert as a reconnaissance attempt.
+> This rule alerts on any TCP packet destined for port `1234` on the server host. Replace `$(SERVER_IP)` with the actual IP address of the target machine (find it with `ifconfig` or `ipconfig`). `flow:stateless` matches regardless of connection state, making it suitable for detecting SYN scans. `classtype:attempted-recon` categorizes the alert as a reconnaissance attempt.
 
 ### Modifying `snort.conf`
 
@@ -202,13 +213,15 @@ nc -l -p 1234
 
 ```bash
 # WSL
-nmap -sS -p 1234 localhost
+nmap -sS -p 1234 $(SERVER_IP)
 
 # Docker Container
-nmap -sT -p 1234 localhost
+nmap -sT -p 1234 $(SERVER_IP)
 ```
 
-> `-sS` performs a SYN (half-open) scan, which requires raw socket privileges and is used in WSL where that is available. `-sT` performs a full TCP connect scan, used inside Docker where raw sockets are typically unavailable. Both scan port `1234` on localhost to trigger the Snort alert.
+> `-sS` performs a SYN (half-open) scan, which requires raw socket privileges and is used in WSL where that is available.  
+`-sT` performs a full TCP connect scan, used inside Docker where raw sockets are typically unavailable.  
+Both scan port `1234` on $(SERVER_IP) to trigger the Snort alert.
 
 ![External packet entrants](./img/scanning_alert.png)
 
@@ -234,10 +247,10 @@ snort -c snort.conf -A console -i eth0 -k none
 
 ```bash
 # For Window
-nping --tcp --flags SYN -p 80 --rate 5 --count 20 localhost
+nping --tcp --flags SYN -p 80 --rate 5 --count 20 (SERVER_IP)
 
 # For Mac
-seq 60 | xargs -I {} -P 60 nc -zv -G 1 localhost 1234
+seq 60 | xargs -I {} -P 60 nc -zv -G 1 (SERVER_IP) 1234
 ```
 
 > **Windows:** `nping` sends `20` raw TCP SYN packets to port `80` at a rate of `5` packets per second, simulating a SYN flood. **Mac:** `seq 60` generates 60 numbers; `xargs -P 60` runs up to 60 parallel `nc` processes simultaneously, each attempting a TCP connection to port `1234` with a 1-second timeout (`-G 1`), flooding the target with concurrent SYN packets.
