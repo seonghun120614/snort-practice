@@ -2,9 +2,9 @@
 
 4th year ITM Information Security Assignment
 
-- **Client**: Kim Seungjun
+- **Client**: 20102105 Kim Seungjun
 - **Server**: 22101997 Park Seonghun
-
+~
 # Table of Contents
 
 - [0th Snort Logging with Using NMAP](#snort-logging-with-using-nmap)
