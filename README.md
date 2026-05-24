@@ -30,6 +30,7 @@ I put explanations after code block to address previous assignment's feedback.
     - [Scanning Port using NMAP](#scanning-port-using-nmap)
 - [3rd Creating DoS Rules](#creating-dos-rules)
     - [Creating `dos.rules`](#creating-dosrules)
+    - [Modifying `snort.conf`](#modifying-snortconf-2)
     - [Running Snort](#running-snort-2)
     - [Send TCP Packet all at once](#send-tcp-packet-all-at-once)
     - [Results](#results)
@@ -238,10 +239,19 @@ alert tcp any any -> any any (msg: "DOS ATTACK IS DETECTED"; flags:S; threshold:
 
 > `flags:S` matches only TCP SYN packets (connection-initiation packets). The `threshold` keyword suppresses repeated alerts and instead fires once when the count reaches `20` SYN packets within `60` seconds to the same destination (`track by_dst`), which is a classic sign of a SYN-flood DoS attack.
 
+### Modifying `snort.conf`
+
+```bash
+# In Section #7, append the DoS rules file
+include $RULE_PATH/dos.rules
+```
+
+> This switches the active rule set so Snort loads the Denial of Service detection rules for this exercise
+
 ### Running Snort
 
 ```bash
-snort -c snort.conf -A console -i eth0 -k none
+snort -c /etc/snort/snort.conf -A console -i eth0 -k none
 ```
 
 > Runs Snort using the local `snort.conf` in the current directory, printing alerts to the console. `-k none` disables checksum validation for the Docker environment.
@@ -256,7 +266,8 @@ nping --tcp --flags SYN -p 80 --rate 5 --count 20 (SERVER_IP)
 seq 60 | xargs -I {} -P 60 nc -zv -G 1 (SERVER_IP) 1234
 ```
 
-> **Windows:** `nping` sends `20` raw TCP SYN packets to port `80` at a rate of `5` packets per second, simulating a SYN flood. **Mac:** `seq 60` generates 60 numbers; `xargs -P 60` runs up to 60 parallel `nc` processes simultaneously, each attempting a TCP connection to port `1234` with a 1-second timeout (`-G 1`), flooding the target with concurrent SYN packets.
+> **Windows:** `nping` sends `20` raw TCP SYN packets to port `80` at a rate of `5` packets per second, simulating a SYN flood.  
+**Mac**: seq 60 generates 60 numbers, which are piped into xargs. The `-I {}` flag acts as a loop controller, ensuring the command runs exactly 60 times(where {} is replaced by each sequential value from the pipeline). By using `-P 60`, xargs spawns up to 60 parallel nc processes simultaneously. Each `nc -zv` process initiates a TCP connection scan—which transmits a raw TCP SYN packet without establishing a full data session—and uses a 1-second timeout (`-G 1`). This setup floods the target with concurrent SYN packets instantly, successfully triggering the Snort threshold.
 
 ### Results
 
