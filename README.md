@@ -2,9 +2,12 @@
 
 4th year ITM Information Security Assignment
 
+I put explanations after code block to address previous assignment's feedback.
+
 - **Client**: 20102105 Kim Seungjun
 - **Server**: 22101997 Park Seonghun
-~
+
+
 # Table of Contents
 
 - [0th Snort Logging with Using NMAP](#snort-logging-with-using-nmap)
@@ -19,13 +22,13 @@
     - [Running Snort with `snort.conf`](#running-snort-with-snortconf)
         - [Docker Checksum Problem](#docker-checksum-problem)
     - [Execute Instruction by Another Terminal](#execute-instruction-by-another-terminal)
-- [Creating Other Local Rules](#creating-other-local-rules)
+- [2nd Creating Other Local Rules](#creating-other-local-rules)
     - [Creating `local.rules`](#creating-localrules)
     - [Modifying `snort.conf`](#modifying-snortconf-1)
     - [Running Snort](#running-snort-1)
     - [Open Port](#open-port)
     - [Scanning Port using NMAP](#scanning-port-using-nmap)
-- [Creating DoS Rules](#creating-dos-rules)
+- [3rd Creating DoS Rules](#creating-dos-rules)
     - [Creating `dos.rules`](#creating-dosrules)
     - [Running Snort](#running-snort-2)
     - [Send TCP Packet all at once](#send-tcp-packet-all-at-once)
