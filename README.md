@@ -7,6 +7,7 @@ I put explanations after code block to address previous assignment's feedback.
 - **Client**: 20102105 Kim Seungjun
 - **Server**: 22101997 Park Seonghun
 
+To follow this project, please clone this project and read `README.md`
 
 # Table of Contents
 
